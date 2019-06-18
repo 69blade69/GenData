@@ -35,8 +35,6 @@ class Zug (Base):
     def __repr__(self):
         return "<Zug('%s','%s','%s','%s')>" % (self.inv_nr, self.date, self.code, self.Wert)
 
-
-
 print(sqlalchemy.__version__)
 
 engine = create_engine("mysql://admin:r00t!QWE@172.22.100.200/testdb", encoding='utf-8', echo=True)
@@ -63,11 +61,8 @@ with engine.connect() as conn:
         print(tmp)
         list_inv_nr.append(tmp)
         i_inv_nr += 1
-        #print('ROW:', row)
-        # print("username:", row['username'])
-        # print('ROW:', row[0]) # conn.execute("SHOW DATABASES")
-        # print("username:", row['User'])
-    print('\n'.join(map(str, list_inv_nr)))  # построчный вывод списка
+
+    print('\n'.join(map(str, list_inv_nr)))  # построчный вывод списка всех инвентарных номеров вагонов
     # print(list_inv_nr[0][1])
 print('Ende')
 
@@ -75,66 +70,55 @@ print('Ende')
 with engine.connect() as conn:
     Session = sessionmaker(bind=engine)
     session = Session()
+
+    pack_zug = []
     for count_inv in list_inv_nr:
         # print(count_inv[1])
         result_inv_nr = conn.execute(
             "SELECT ZVCH_INV, `0CALDAY`, ZVCH_BRKT FROM testdb.uncoupling WHERE ZVCH_INV = %s ORDER BY `0CALDAY` ASC" % count_inv[1])
 
         list_zug = []
-        i_zug = 1
         for row_inv_nr in result_inv_nr:
             # print(str(row_inv_nr))
             T_zug = (row_inv_nr)  # T = ('cc', 'aa', 'dd', 'bb')
             tmp_zug = list(T_zug)  # Создать список из элементов кортежа
             list_zug.append(tmp_zug)
-            i_inv_nr += 1
-        print('\n'.join(map(str, list_zug)))  # построчный вывод списка
+
+        # print('\n'.join(map(str, list_zug)))  # построчный вывод списка
         # print(list_zug[0][1], list_zug[1][1])
 
         """Gen Datetime, import Wert from test_table and push into gen_test_table"""
 
         i_date = 0
-        pack_zug = []
+        for count_date in list_zug:
+            if len(list_zug) == i_date + 1:
+                break
+            date_generated = [list_zug[i_date][1] + datetime.timedelta(days=x) for x in range(1, (list_zug[i_date+1][1] - list_zug[i_date][1]).days)]
 
-        with engine.connect() as conn2:
-            # Session = sessionmaker(bind=engine)
-            # session = Session()
-            for count_date in list_zug:
-                if len(list_zug) == i_date + 1:
-                    break
-                date_generated = [list_zug[i_date][1] + datetime.timedelta(days=x) for x in range(1, (list_zug[i_date+1][1] - list_zug[i_date][1]).days)]
+            result_wert = conn.execute(
+                "SELECT value_min, value_max FROM testdb.test_table WHERE code_id = %s" % list_zug[i_date][2])
+            wert_row_tmp = []
+            for wert_row in result_wert:
+                wert_row_tmp.append(wert_row)
 
-                # i_date += 1
+            test_zug = Zug(list_zug[i_date][0], list_zug[i_date][1], list_zug[i_date][2], wert_row_tmp[0][1])
+            pack_zug.append(test_zug)
 
-                # with engine.connect() as conn:
-                #     Session = sessionmaker(bind=engine)
-                #     session = Session()
-                result_wert = conn2.execute(
-                    "SELECT value_min, value_max FROM testdb.test_table WHERE code_id = %s" % list_zug[i_date][2])
-                wert_row_tmp = []
-                for wert_row in result_wert:
-                    wert_row_tmp.append(wert_row)
+            if len(date_generated) > 0:
+                wert_i = ((wert_row_tmp[0][1]-wert_row_tmp[0][0])/(len(date_generated)))
+            else:
+                wert_i = 0
+            wert = wert_row_tmp[0][1]
+            for date in date_generated:
+                # test_zug = Zug(list_zug[i_date][0], list_zug[i_date][1], list_zug[i_date][2], wert)
+                wert = wert - wert_i
+                test_zug_date = Zug(list_zug[i_date][0], date, list_zug[i_date][2], wert)
+                pack_zug.append(test_zug_date)
+            i_date += 1
+        print('\n'.join(map(str, list_zug)))  # построчный вывод списка
+        session.add_all(pack_zug)
+        session.commit()
+        pack_zug.clear()
 
-                # wert = random.randrange(result_wert[0], result_wert[1])
-                test_zug = Zug(list_zug[i_date][0], list_zug[i_date][1], list_zug[i_date][2], wert_row_tmp[0][1])
-                pack_zug.append(test_zug)
 
-                if len(date_generated) > 0:
-                    wert_i = ((wert_row_tmp[0][1]-wert_row_tmp[0][0])/(len(date_generated)))
-                wert = wert_row_tmp[0][1]
-                for date in date_generated:
-                    # test_zug = Zug(list_zug[i_date][0], list_zug[i_date][1], list_zug[i_date][2], wert)
-                    wert = wert - wert_i
-                    test_zug_date = Zug(list_zug[i_date][0], date, list_zug[i_date][2], wert)
-                    pack_zug.append(test_zug_date)
-
-                session.add_all(pack_zug)
-                session.commit()
-                pack_zug.clear()
-
-                i_date += 1
-
-                # for date in date_generated:
-                #     print(date.strftime("%Y-%m-%d"))
-                # print("----------------------------")
 #conn.close()g='utf-8', echo=True)
