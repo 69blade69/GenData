@@ -46,7 +46,7 @@ with engine.connect() as conn:
 
     """ input and sort inv_nr from testdb.uncoupling"""
     result = conn.execute(
-        "SELECT COUNT(ZVCH_INV) AS cnt_inv, ZVCH_INV FROM testdb.uncoupling group by ZVCH_INV ORDER BY cnt_inv desc limit 20;")
+        "SELECT COUNT(ZVCH_INV) AS cnt_inv, ZVCH_INV FROM testdb.uncoupling group by ZVCH_INV ORDER BY cnt_inv desc limit 1000;")
 
     print('Start')
     list_inv_nr = []
@@ -65,7 +65,7 @@ with engine.connect() as conn:
     print('\n'.join(map(str, list_inv_nr)))  # построчный вывод списка всех инвентарных номеров вагонов
     # print(list_inv_nr[0][1])
 print('Ende')
-
+# counter = 0
 """read table from inv_nr with Date uncoupling """
 with engine.connect() as conn:
     Session = sessionmaker(bind=engine)
@@ -96,11 +96,12 @@ with engine.connect() as conn:
             date_generated = [list_zug[i_date][1] + datetime.timedelta(days=x) for x in range(1, (list_zug[i_date+1][1] - list_zug[i_date][1]).days)]
 
             result_wert = conn.execute(
-                "SELECT value_min, value_max FROM testdb.test_table WHERE code_id = %s" % list_zug[i_date][2])
+                "SELECT value_min, value_max FROM testdb.test_table WHERE code_id = %s" % list_zug[i_date][2]) # TODO: требуется проверка кода
             wert_row_tmp = []
             for wert_row in result_wert:
                 wert_row_tmp.append(wert_row)
-
+            # print("Counter: %s" % counter)
+            # counter += 1
             test_zug = Zug(list_zug[i_date][0], list_zug[i_date][1], list_zug[i_date][2], wert_row_tmp[0][1])
             pack_zug.append(test_zug)
 
@@ -114,7 +115,9 @@ with engine.connect() as conn:
                 wert = wert - wert_i
                 test_zug_date = Zug(list_zug[i_date][0], date, list_zug[i_date][2], wert)
                 pack_zug.append(test_zug_date)
+
             i_date += 1
+
         print('\n'.join(map(str, list_zug)))  # построчный вывод списка
         session.add_all(pack_zug)
         session.commit()
